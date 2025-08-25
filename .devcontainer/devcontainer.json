@@ -1,0 +1,45 @@
+{
+	"name": "onnx-runtime",
+    "image": "ghcr.io/nekkoai/onnxruntime:latest",
+
+	"runArgs": [ 
+        "--device=/dev/et0_mgmt:/dev/et0_mgmt", 
+        "--device=/dev/et0_ops:/dev/et0_ops", 
+        "--security-opt=seccomp:unconfined", 
+        "--net=host"],
+
+	// Set *default* container specific settings.json values on container create.
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "chiehyu.vscode-astyle",
+                "dan-c-underwood.arm",
+                "fredericbonnet.cmake-test-adapter",
+                "github.vscode-pull-request-github",
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ms-python.black-formatter",
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools",
+                "ms-vscode.cpptools-extension-pack"
+                ]
+        }
+    },
+	// "containerUser": "user",
+	"containerUser": "root",
+	"containerEnv": {
+            "LOCAL_USER_ID": "${localEnv:UID}",
+            "DISPLAY": "unix:0"
+	},
+    "mounts": ["source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+                "source=/dev/dri,target=/dev/dri,type=bind,consistency=cached",
+                "source=/dev/shm,target=/dev/shm,type=bind,consistency=cached",
+                "source=/home/et,target=/home/et,type=bind,consistency=cached"
+            ]
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [14556]
+}
