@@ -1,0 +1,18 @@
+version: "2.4"
+
+services:
+  dev:
+    image: ghcr.io/nekkoai/onnxruntime:latest
+    container_name: hf_et_dev
+    volumes:
+      - ./:/workspace:cached
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    devices:
+      - /dev/et0_mgmt:/dev/et0_mgmt
+      - /dev/et0_ops:/dev/et0_ops
+    security_opt:
+      - seccomp:unconfined
+    network_mode: host
+    entrypoint: ["/bin/bash"]

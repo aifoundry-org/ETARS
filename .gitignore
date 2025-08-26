@@ -1,2 +1,7 @@
 models/*
 !*.gitkeep
+venv
+*.code-workspace
+onnxruntime_bundles
+
+*.pyc
