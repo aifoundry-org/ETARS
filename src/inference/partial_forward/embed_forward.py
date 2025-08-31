@@ -6,7 +6,7 @@ from huggingface_hub import hf_hub_download
 from transformers import AutoTokenizer, AutoProcessor, AutoConfig
 from transformers.image_utils import load_image
 
-from src.session.session import setup_encoder_session
+from src.session.text_encoder import setup_text_encoder_session
 
 repo_id = "ainekko/smolVLM"
 model_filename = "embed_tokens.onnx"
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     model_id = "HuggingFaceTB/SmolVLM-256M-Instruct"
     config = AutoConfig.from_pretrained(model_id)
     processor = AutoProcessor.from_pretrained(model_id)
-    embed_session = setup_encoder_session(Path(local_model_path), args)
+    embed_session = setup_text_encoder_session(Path(local_model_path), provider="ET")
 
     messages = [
     {

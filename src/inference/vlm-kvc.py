@@ -101,8 +101,8 @@ def get_etglow_api_params(args, sep=';'):
         f"extra-etsoc-params='{extra_params}'"
     ]
     api_params = sep.join(api_params)
-    if args.use_kvc and args.etglow_implementation == "llm_kvc_inference_iobindings":
-        api_params += get_device_placeholders(args, sep)
+#    if args.use_kvc and args.etglow_implementation == "llm_kvc_inference_iobindings":
+#        api_params += get_device_placeholders(args, sep)
     return api_params
 
 def get_sequence_size(args):
@@ -132,6 +132,16 @@ def get_vis_onnx_symbols():
         # "NonZero_7_o0__d1": 1,
         "image_sequence": 64,
         # "batch_size*num_images": 1
+    }
+
+    return symbols
+
+def get_decoder_onnx_symbols():
+    symbols = {
+        "batch_size": 1,
+        "sequence_length": 256,
+        "total_sequence_length": 256,
+        "past_sequence_length": 256
     }
 
     return symbols
@@ -405,7 +415,7 @@ def fix_model_dimensions(model_path : Path, onnx_symbols: dict) -> Path:
     for key, value in onnx_symbols.items():
         make_dim_param_fixed(model_noexternaldata.graph, key, value)
     model_noexternaldata = model_noexternaldata.SerializeToString()
-    fixeddim_model_path = model_path.parent / "model-fixed-dims.onnx"
+    fixeddim_model_path = model_path.parent / f"{model_path.name}_model-fixed-dims.onnx"
     with open(fixeddim_model_path, "wb") as f:
         f.write(model_noexternaldata)
     return fixeddim_model_path
@@ -526,14 +536,44 @@ def setup_vision_session(model_path, args):
     session_options.profile_file_prefix = f'{model_name}_etglow_window_{args.window_size}'
 
     # session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
-    session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'])
-    # session_etglow = onnxruntime.InferenceSession(model_path, sess_options=session_options)
+    # session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'])
+    session_etglow = onnxruntime.InferenceSession(model_path, sess_options=session_options)
     # session_etglow = onnxruntime.InferenceSession(model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'])
 
     etsoc_comp_time = time.time() - start 
 
     return session_etglow
 
+
+def setup_decoder_session(model_path, args):
+    context_len = get_context_size(args)
+
+    model_name = str(model_path.parents[0]).replace(str(model_path.parents[1]), '').replace(r'/', '')
+    
+    session_options = onnxruntime.SessionOptions()
+    print(session_options)
+    set_verbose_output(session_options, args.verbose)
+    session_options.enable_profiling = args.enable_tracing
+    session_options.graph_optimization_level = get_graph_optimization_level("ORT_ENABLE_ALL")
+
+    onnx_symbols = get_decoder_onnx_symbols()
+
+    fixed_model_path = fix_model_dimensions(model_path, onnx_symbols)
+
+    # Create etglow Provider options
+    provider_options = get_etglow_provider_options(args, onnx_symbols)
+
+    start = time.time()
+    session_options.profile_file_prefix = f'{model_name}_etglow_window_{args.window_size}'
+
+    # session_etglow = onnxruntime.InferenceSession(model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    # session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options)
+    # session_etglow = onnxruntime.InferenceSession(model_path, sess_options=session_options)
+
+    etsoc_comp_time = time.time() - start 
+
+    return session_etglow
 
 
 
@@ -613,57 +653,66 @@ def main():
     args.num_layers = 0
     # args.use_kvc = False
     args.use_kvc = True
-    embed_session = setup_encoder_session(embed_model_path, args)
+    # embed_session = setup_encoder_session(embed_model_path, args)
     inputs = processor(text=prompt, images=[image], return_tensors="np")
     input_ids = inputs['input_ids']
 
-    inputs_embeds = embed_session.run(None, {'input_ids': input_ids})[0]
+    # inputs_embeds = embed_session.run(None, {'input_ids': input_ids})[0]
 
+    print("Text embeds generated.")
     # # VisionSession
 
-    vision_model_path = Path("/home/et/onnx-experiments/smolVLM/vision_encoder_axis.onnx")
+    # vision_model_path = Path("/home/et/onnx-experiments/smolVLM/vision_encoder_fixed.onnx")
+    vision_model_path = Path("/home/et/onnx-experiments/smolVLM/vision_encoder.onnx")
     # vision_model_path = Path("/home/et/onnx-experiments/smolVLM/vision_encoder-kvc.onnx")
     args.num_layers = 0
-    vision_session = setup_vision_session(vision_model_path, args)
+    # vision_session = setup_vision_session(vision_model_path, args)
 
-    image_features = vision_session.run(
-        ['image_features'],  # List of output names or indices
-        {
-            'pixel_values': inputs['pixel_values'],
-            'pixel_attention_mask': inputs['pixel_attention_mask'].astype(np.bool_)
-        }
-    )[0]
+    # image_features = vision_session.run(
+    #     ['image_features'],  # List of output names or indices
+    #     {
+    #         'pixel_values': inputs['pixel_values'],
+    #         'pixel_attention_mask': inputs['pixel_attention_mask'].astype(np.bool_)
+    #     }
+    # )[0]
 
-    return(0)
+    # return(0)
 
 
+    print("Vision embeds generated.")
 
 
     # # DecoderSession
 
     # decoder_model_path = Path("/home/et/onnx-experiments/smolVLM/decoder_model_merged-kvc.onnx")
-    # args.num_layers = 24
-    # decoder_session = setup_inference_session(decoder_model_path, args)
+    # decoder_model_path = Path("/home/et/onnx-experiments/smolVLM/decoder_model_merged_noscap_decomposed.onnx")
+    decoder_model_path = Path("/home/et/onnx-experiments/smolVLM/decoder_model_merged_noscap_decomposed.onnx")
+    args.num_layers = 24
+    decoder_session = setup_decoder_session(decoder_model_path, args)
+
+    print("decoder session created")
+
+    pass
 
 
 
-    etsoc_comp_time = time.time() - start 
+    # etsoc_comp_time = time.time() - start 
 
-    run_options_etglow = onnxruntime.RunOptions()
-    run_options_etglow.add_run_config_entry("memory.enable_memory_arena_shrinkage", "gpu:0")  # force memory shrinkage
+    # run_options_etglow = onnxruntime.RunOptions()
+    # run_options_etglow.add_run_config_entry("memory.enable_memory_arena_shrinkage", "gpu:0")  # force memory shrinkage
 
-    # Process inputs
-    input_tensors_etglow = preprocess_llm_input_tensors(session_etglow, prompt_tensor, args)
+    # # Process inputs
+    # input_tensors_etglow = preprocess_llm_input_tensors(session_etglow, prompt_tensor, args)
 
-    # Launch ETSoC inference
-    start = time.time()
+    # # Launch ETSoC inference
+    # start = time.time()
 
-    answers_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, run_options_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+    # answers_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, run_options_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
 
-    session_etglow.end_profiling()
-    inf_time_etsoc = time.time() - start
+    # session_etglow.end_profiling()
+    # inf_time_etsoc = time.time() - start
 
-    print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answers_etglow,  args.batch * args.generate_tokens)
+    # print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answers_etglow,  args.batch * args.generate_tokens)
 
     # compare_results(perplexity_cpu, perplexity_etglow, answers_cpu, answers_etglow)
 
