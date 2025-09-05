@@ -4,6 +4,7 @@ import onnxruntime as ort
 
 
 from src.session import vision, text_encoder, head, vlm_exp, state
+from src.lerobot.policies.smolvla.smolvlm_with_expert_onnx import SmolVLMWithExpertModelOnnx
 from src.utils.np_operations import silu
 
 
@@ -93,17 +94,23 @@ def pad_tensor(tensor, max_len, pad_value=0):
 # expert_hidden ──(opt)► HEAD sess ──► actions [B,S1,act_dim]
 
 class smolVLAFlow():
-    def __init__(self, vision_path, text_path, core_path, *, state_path=None, head_path=None) -> None:
+    def __init__(self, 
+                 vision_path, 
+                 text_path, 
+                 core_path, 
+                 vlme_path, 
+                 state_path=None, 
+                 head_path=None) -> None:
+
         self.vision = vision.setup_vision_session(vision_path,
                                                    "CPU",
                                                    False,
                                                    num_layers=12)
         self.text = text_encoder.setup_text_encoder_session(text_path, "ET")
-        self.vlm_exp = vlm_exp.setup_vlm_expert_session()
         self.state = state.get_state_session()
         self.head = head.setup_head_session()
 
-        self.vlme = None # omg...
+        self.vlme = SmolVLMWithExpertModelOnnx(vlme_model_path=vlme_path)
         
         self.state_proj = None
         self.action_in_proj = None
@@ -265,12 +272,17 @@ class smolVLAFlow():
         prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
             images, img_masks, lang_tokens, lang_masks, state=state
         )
+        
 
         prefix_add_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = np.cumsum(prefix_pad_masks, axis=1) - 1
 
         # Compute image and language key value cache
-        _, past_key_values = magical_vlm_forward_function() # mhm, good luck with that..
+        _, past_key_values = self.vlme.forward(vlm_embeds=prefix_embs, 
+                                               expert_embeds=None, 
+                                               attention_mask=prefix_add_2d_masks,
+                                               position_ids=prefix_position_ids,
+                                               fill_kv_cache=True)
 
         dt = -1.0 / self.num_steps
         dt = np.array(dt, dtype=np.float32)
@@ -306,7 +318,15 @@ class smolVLAFlow():
         prefix_offsets = np.sum(prefix_pad_masks, axis=-1)[:, None]
         position_ids = prefix_offsets + np.cumsum(suffix_pad_masks, axis=1) - 1
 
-        output_embeds, _ = magical_vlm_forward_function() #
+        # output_embeds, _ = magical_vlm_forward_function() #
+        output_embeds, _ = self.vlme.forward(
+            attention_mask=full_att_2d_masks,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            vlm_embeds=None,
+            expert_embeds=suffix_embs
+
+        )
 
         suffix_out = output_embeds[1]
         suffix_out = suffix_out[:, -self.chunk_size :]
