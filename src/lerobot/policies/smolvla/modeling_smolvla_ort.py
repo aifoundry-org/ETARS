@@ -6,7 +6,7 @@ from pathlib import Path
 
 from src.session import vision, text_encoder, head, vlm_exp, state
 from src.lerobot.policies.smolvla.smolvlm_with_expert_onnx import SmolVLMWithExpertModelOnnx
-from src.utils.np_operations import silu
+from src.utils.np_operations import silu, mse_loss
 
 from src.session.nn_session import OnnxModule
 
@@ -100,7 +100,7 @@ def pad_tensor(tensor, max_len, pad_value=0):
 # (mask,pos,emb0,emb1) ──► CORE sess ──► expert_hidden [B,S1,Dexp]
 # expert_hidden ──(opt)► HEAD sess ──► actions [B,S1,act_dim]
 
-class smolVLAFlow():
+class SmolVLAFlow():
     def __init__(self, config: SmolVLAConfig):
 
         self.config = config
@@ -139,6 +139,14 @@ class smolVLAFlow():
             size=shape,
         ).astype(np.float32)
         return noise
+
+    def sample_time(self, bsize):
+        # We sample from a Beta distribution with alpha=1.5 and beta=1.0.
+        time_beta = np.random.beta(1.5, 1.0, size=bsize).astype(np.float32)
+
+        # Scale and shift the values to be in the range [0.001, 1.0]
+        time = time_beta * 0.999 + 0.001
+        return time
 
     def embed_prefix(self, images, img_masks, lang_tokens, lang_masks, state):
         embs = []
@@ -268,8 +276,44 @@ class smolVLAFlow():
 
         return embs, pad_masks, att_masks
 
-    def forward(self):
-        pass
+    def forward(self, images, img_masks, lang_tokens, lang_masks, state, actions, noise=None, time=None):
+        if noise is None:
+            noise = self.sample_noise(actions.shape)
+
+        if time is None:
+            time = self.sample_time(actions.shape[0])
+        
+        time_expanded = time[:, None, None]
+        x_t = time_expanded * noise + (1 - time_expanded) * actions
+        u_t = noise - actions
+        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
+            images, img_masks, lang_tokens, lang_masks, state=state
+        )
+
+        suffix_embs, suffix_pad_masks, suffix_att_masks = self.embed_suffix(x_t, time)
+
+        pad_masks = np.concatenate([prefix_pad_masks, suffix_pad_masks], axis=1)
+        att_masks = np.concatenate([prefix_att_masks, suffix_att_masks], axis=1)
+
+        att_2d_masks = make_att_2d_masks(pad_masks, att_masks)
+        position_ids = np.cumsum(pad_masks, axis=1) - 1
+
+        (_, suffix_out), _ = self.vlme.forward(vlm_embeds=prefix_embs,
+                                               expert_embeds=suffix_embs,
+                                               attention_mask=att_2d_masks,
+                                               position_ids=position_ids,
+                                               fill_kv_cache=False,
+                                               past_key_values=None)
+        
+        suffix_out = suffix_out[:, -self.config.chunk_size :]
+        # Original openpi code, upcast attention output
+        # suffix_out = suffix_out.to(dtype=torch.float32)
+        v_t = self.action_out_proj(**{self.action_out_proj.output_names[0]: suffix_out})
+        losses = mse_loss(u_t, v_t, reduction="none")
+
+        return losses
+
+
 
     def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, noise=None):
         """Do a full inference forward and compute the action (batch_size x num_steps x num_motors)"""
