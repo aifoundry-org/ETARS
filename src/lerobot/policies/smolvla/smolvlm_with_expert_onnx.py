@@ -1,53 +1,74 @@
-from src.session import vision, text_encoder, head, vlm_exp, state
+from pathlib import Path
+from src.session import vlm_exp
+from src.session.nn_session import OnnxModule
 
-class SmolVLMWithExpertModelOnnx:
-    def __init__(self, 
-                 vlme_model_path="") -> None:
-        self.vlm_session = self.get_vlme_session(vlme_model_path)
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForImageTextToText,
+    AutoProcessor,
+    SmolVLMForConditionalGeneration,
+)
 
-        self.input_names = [inp.name for inp in self.vlm_session.get_inputs()]
-        self.output_names = [out.name for out in self.vlm_session.get_outputs()]
-        self.num_kv_outputs = len(self.output_names) - 2 # Outputs are (vlm_emb, exp_emb, kv_cache...)
-        
-        pass
+class SmolVLMWithExpertModelOnnx(OnnxModule):
+    def __init__(self):
+        self.model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"
 
-    def get_vlme_session(self, model_path):
-        return vlm_exp.setup_vlme_session(model_path, "CPU")
+        self.processor = AutoProcessor.from_pretrained(self.model_id)
+        # self.vlm_session = self.get_vlme_session(vlme_model_path)
 
-    def get_encoder_session(self):
-        pass
+        # Outputs are (vlm_emb, exp_emb, kv_cache...)
 
-    def get_visual_session(self):
-        pass
+    def get_vlme_module(self, model_path:Path):
+        self.vlm_session = vlm_exp.setup_vlme_session(model_path, "CPU")
+        self.num_kv_outputs = len(self.output_names) - 2
 
-    def embed_image(self, image):
-        # return image_hidden_state
-        pass
+        return self
 
-    def embed_language_tokens(self, tokens):
-        # return input_embeddings
-        pass
-    
+    def get_text_encoder_module(self, model_path: Path) -> OnnxModule:
+        module = OnnxModule(model_path=model_path,
+                            provider="CPU",
+                            fix_dimensions=False,
+                            input_names=[],
+                            output_names=[])
+        # Place to fill onnx_symbols
+        module.onnx_symbols = {}
+
+        return module
+
+    def get_visual_module(self, model_path: Path):
+        module = OnnxModule(model_path=model_path,
+                            provider="CPU",
+                            fix_dimensions=False,
+                            input_names=[],
+                            output_names=[])
+        # Place to fill onnx_symbols
+        module.onnx_symbols = {}
+        module.num_layers = 12
+
+        return module
+
     # TODO implement past_key_values model switching logic
-    def forward(self, 
-                vlm_embeds, 
-                expert_embeds, 
-                attention_mask, 
-                position_ids, 
-                fill_kv_cache=True, # Don't know what to do with that yet
+    def forward(self,
+                vlm_embeds,
+                expert_embeds,
+                attention_mask,
+                position_ids,
+                fill_kv_cache=True,  # Don't know what to do with that yet
                 past_key_values=None
                 ):
-        
+
         input_feed = {
             'vlm_embeds': vlm_embeds,
             'expert_embeds': expert_embeds,
             'attention_mask': attention_mask,
             'position_ids': position_ids,
         }
-        
+
         if past_key_values is not None:
             # Check if the number of provided KV tensors matches what the model expects
-            num_expected_kv_inputs = len(self.input_names) - 4 # Subtract the 4 main inputs
+            # Subtract the 4 main inputs
+            num_expected_kv_inputs = len(self.input_names) - 4
             if len(past_key_values) != num_expected_kv_inputs:
                 raise ValueError(
                     f"Incorrect number of past_key_values provided. "
@@ -59,7 +80,7 @@ class SmolVLMWithExpertModelOnnx:
                 input_feed[f'past_key_{layer_idx}'] = past_key_values[i]
                 input_feed[f'past_value_{layer_idx}'] = past_key_values[i+1]
 
-        outputs_embeds, past_key_values = self.vlm_session.run(self.output_names, 
+        outputs_embeds, past_key_values = self.vlm_session.run(self.output_names,
                                                                input_feed=input_feed)
 
         return outputs_embeds, past_key_values
