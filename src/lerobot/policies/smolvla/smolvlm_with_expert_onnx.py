@@ -19,8 +19,9 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
 
         # Outputs are (vlm_emb, exp_emb, kv_cache...)
 
-    def get_vlme_module(self, model_path:Path):
-        self.vlm_session = vlm_exp.setup_vlme_session(model_path, "CPU")
+    def get_vlme_module(self, model_path_prefill: Path, model_path_decode: Path):
+        self.vlm_session_prefill = vlm_exp.setup_vlme_session(model_path_prefill, "CPU")
+        self.vlm_session_decode = vlm_exp.setup_vlme_session(model_path_decode, "CPU")
         self.num_kv_outputs = len(self.output_names) - 2
 
         return self
@@ -79,8 +80,11 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
                 layer_idx = i // 2
                 input_feed[f'past_key_{layer_idx}'] = past_key_values[i]
                 input_feed[f'past_value_{layer_idx}'] = past_key_values[i+1]
-
-        outputs_embeds, past_key_values = self.vlm_session.run(self.output_names,
-                                                               input_feed=input_feed)
+            
+            outputs_embeds, past_key_values = self.vlm_session_decode.run(self.output_names,
+                                                                          input_feed=input_feed)
+        else:
+            outputs_embeds, past_key_values = self.vlm_session_prefill.run(self.output_names,
+                                                                   input_feed=input_feed)
 
         return outputs_embeds, past_key_values

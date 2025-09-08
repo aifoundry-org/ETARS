@@ -106,7 +106,7 @@ class SmolVLAFlow():
         self.config = config
 
         self.vlme = SmolVLMWithExpertModelOnnx()
-        self.vlme_module = self.vlme.get_vlme_module(Path(""))
+        self.vlme_module = self.vlme.get_vlme_module(Path(""), Path(""))
         self.vision_module = self.vlme.get_visual_module(Path(""))
         self.text = self.vlme.get_text_encoder_module(Path(""))
 
