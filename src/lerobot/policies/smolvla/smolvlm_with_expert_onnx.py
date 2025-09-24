@@ -22,7 +22,7 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
     def get_vlme_module(self, model_path_prefill: Path, model_path_decode: Path):
         self.vlm_session_prefill = vlm_exp.setup_vlme_session(model_path_prefill, "CPU")
         self.vlm_session_decode = vlm_exp.setup_vlme_session(model_path_decode, "CPU")
-        self.num_kv_outputs = len(self.output_names) - 2
+        # self.num_kv_outputs = len(self.output_names) - 2
 
         return self
 

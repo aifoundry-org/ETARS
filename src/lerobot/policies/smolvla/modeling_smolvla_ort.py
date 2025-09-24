@@ -10,13 +10,15 @@ from src.utils.np_operations import silu, mse_loss
 
 from src.session.nn_session import OnnxModule
 
+from transformers import AutoProcessor
 from lerobot.policies.smolvla.configuration_smolvla import SmolVLAConfig
-
-try:
-    from transformers import AutoProcessor
-except Exception:
-    AutoProcessor = None
-
+from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
+from lerobot.policies.pretrained import PreTrainedPolicy
+from src.lerobot.policies.normalize import (
+    Normalize,
+    Unnormalize
+)
+from src.lerobot.policies.smolvla import constants
 
 def make_att_2d_masks(pad_masks: np.ndarray, att_masks: np.ndarray) -> np.ndarray:
     """Creates 2D attention masks from 1D padding and attention masks."""
@@ -90,6 +92,37 @@ def pad_tensor(tensor, max_len, pad_value=0):
 
     return padded_tensor
 
+class SmolVLAPolicyOnnx(SmolVLAPolicy):
+
+    def __init__(self):
+        name = "smolvla"
+        self.config = SmolVLAConfig(input_features=constants.INPUT_FEATURES, output_features=constants.OUTPUT_FEATURES)
+        config = self.config
+        dataset_stats = None
+
+        # Normalize is Fake
+        self.normalize_inputs = Normalize(config.input_features, config.normalization_mapping, dataset_stats)
+        self.normalize_targets = Normalize(
+            config.output_features, config.normalization_mapping, dataset_stats
+        )
+        self.unnormalize_outputs = Unnormalize(
+            config.output_features, config.normalization_mapping, dataset_stats
+        )
+
+        self.language_tokenizer = AutoProcessor.from_pretrained(self.config.vlm_model_name).tokenizer
+
+        self.model = SmolVLAFlowOnnx(self.config)
+
+        self.reset()
+    
+    def eval(self):
+        return self
+    
+    def forward(self, batch, noise=None, time=None):
+        raise NotImplementedError("No training is supported, forward are not implemented")
+    
+    
+
 
 # [B*C,3,H,W] ──► VISION sess ──reshape──► [B, C*Simg, Dvlm]
 # [B,Stxt]    ──► TEXT   sess ────────────► [B, Stxt,  Dvlm]
@@ -100,22 +133,24 @@ def pad_tensor(tensor, max_len, pad_value=0):
 # (mask,pos,emb0,emb1) ──► CORE sess ──► expert_hidden [B,S1,Dexp]
 # expert_hidden ──(opt)► HEAD sess ──► actions [B,S1,act_dim]
 
-class SmolVLAFlow():
+class SmolVLAFlowOnnx():
     def __init__(self, config: SmolVLAConfig):
 
         self.config = config
 
         self.vlme = SmolVLMWithExpertModelOnnx()
-        self.vlme_module = self.vlme.get_vlme_module(Path(""), Path(""))
-        self.vision_module = self.vlme.get_visual_module(Path(""))
-        self.text = self.vlme.get_text_encoder_module(Path(""))
+        self.vlme_module = self.vlme.get_vlme_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_prefill.onnx"), Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_decode.onnx"))
+        self.text = self.vlme.get_text_encoder_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_text.onnx"))
 
 
-        self.state_proj = OnnxModule(Path(""), "CPU")
-        self.action_in_proj = OnnxModule(Path(""), "CPU")
-        self.action_out_proj = OnnxModule(Path(""), "CPU")
-        self.action_time_mlp_in = OnnxModule(Path(""), "CPU")
-        self.action_time_mpl_out = OnnxModule(Path(""), "CPU")
+        self.state_proj = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"), "CPU")
+        self.action_in_proj = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/action_in_projector.onnx"), "CPU")
+        self.action_out_proj = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/action_out_projector.onnx"), "CPU")
+        self.action_time_mlp_in = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/time_in_projector.onnx"), "CPU")
+        self.action_time_mpl_out = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/time_out_projector.onnx"), "CPU")
+
+
+        self.vision_module = self.vlme.get_visual_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_vision.onnx"))
 
         # class instance vars
         self.fake_image_token = self.vlme.processor.tokenizer.fake_image_token_id
@@ -158,6 +193,7 @@ class SmolVLAFlow():
             img_mask,
         ) in enumerate(zip(images, img_masks, strict=False)):
             if self.add_image_special_tokens:
+
                 # placaholder for img_start_token gen
                 image_start_token = (
                     self.text(**{self.text.input_names[0]: self.global_image_start_token}))
@@ -167,6 +203,7 @@ class SmolVLAFlow():
                 embs.append(image_start_token)
                 pad_masks.append(image_start_mask)
 
+            img = (img.numpy() * 255).astype(np.int8)
             img_emb = self.vision_module(**{self.vision_module.input_names[0]: img})
 
             # Normalize image embeddings
@@ -245,7 +282,7 @@ class SmolVLAFlow():
         # Embed timestep using sine-cosine positional encoding with sensitivity in the range [0, 1]
         time_emb = create_sinusoidal_pos_embedding(timestamp,
                                                    self.expert_hidden_size,
-                                                   self.config.min_eriod,
+                                                   self.config.min_period,
                                                    self.config.max_period)
 
         # time_emb = time_emb.type(dtype=dtype) #?
@@ -277,6 +314,7 @@ class SmolVLAFlow():
         return embs, pad_masks, att_masks
 
     def forward(self, images, img_masks, lang_tokens, lang_masks, state, actions, noise=None, time=None):
+        raise NotImplementedError("Forward not yet implemented")
         if noise is None:
             noise = self.sample_noise(actions.shape)
 

@@ -25,7 +25,7 @@ def setup_vlme_session(model_path,
 
     session_options = onnxruntime.SessionOptions()
     print(session_options)
-    set_verbose_output(session_options, False)
+    set_verbose_output(session_options, True)
 
     session_options.enable_profiling = tracing
     session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL

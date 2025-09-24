@@ -50,10 +50,12 @@ class OnnxModule:
             raise ValueError(f"Unknown provider {provider}")
         
         if not self.input_names:
-            self.input_names = [inp.name for inp in self.session.get_inputs()]
+            self.input_names = [inp.name for inp in session.get_inputs()]
 
         if not self.output_names:
-            self.output_names = [out.name for out in self.session.get_outputs()]
+            self.output_names = [out.name for out in session.get_outputs()]
+        
+        print(f"Loaded onnx session for {model_path.__str__().split('/')[-1]} for provider {provider}")
 
         return session
 
