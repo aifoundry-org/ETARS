@@ -16,10 +16,10 @@ ds = LeRobotDataset(REPO_ID, download_videos=True)
 
 N = 4
 idx0 = 0
-# device = next(policy.parameters()).device
 task_str = "Pick and place the object into the bin" 
 
 # policy.config.image_features[OBS_IMAGE] = 0
+# policy.config.chunk_size = 6 # Temp just for testing
 
 for i in range(idx0, idx0 + N):
     sample = ds[i]  # returns dict with observation and (optionally) action
@@ -31,6 +31,7 @@ for i in range(idx0, idx0 + N):
     #           for k, v in images.items()}
 
     # batch = {OBS_IMAGE: images, "task": task_str}
+
     batch = {OBS_IMAGE: images, "task": task_str}
     if OBS_STATE in sample and isinstance(sample[OBS_STATE], torch.Tensor):
         batch[OBS_STATE] = sample[OBS_STATE].unsqueeze(0)

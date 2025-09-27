@@ -18,6 +18,7 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
         # self.vlm_session = self.get_vlme_session(vlme_model_path)
 
         # Outputs are (vlm_emb, exp_emb, kv_cache...)
+        # super.__init__()
 
     def get_vlme_module(self, model_path_prefill: Path, model_path_decode: Path):
         self.vlm_session_prefill = vlm_exp.setup_vlme_session(model_path_prefill, "CPU")
@@ -68,8 +69,9 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
 
         if past_key_values is not None:
             # Check if the number of provided KV tensors matches what the model expects
-            # Subtract the 4 main inputs
-            num_expected_kv_inputs = len(self.input_names) - 4
+            # Subtract the 4 main inputs (in case of onnx module it's 3)
+            decode_input_names = [inp.name for inp in self.vlm_session_decode.get_inputs()]
+            num_expected_kv_inputs = len(decode_input_names) - 3
             if len(past_key_values) != num_expected_kv_inputs:
                 raise ValueError(
                     f"Incorrect number of past_key_values provided. "
@@ -80,11 +82,14 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
                 layer_idx = i // 2
                 input_feed[f'past_key_{layer_idx}'] = past_key_values[i]
                 input_feed[f'past_value_{layer_idx}'] = past_key_values[i+1]
-            
-            outputs_embeds, past_key_values = self.vlm_session_decode.run(self.output_names,
+
+            decode_output_names = [inp.name for inp in self.vlm_session_decode.get_outputs()]
+            input_feed.pop("vlm_embeds") # because onnx exported prunes node that have None as input
+            outputs_embeds, *past_key_values = self.vlm_session_decode.run(decode_output_names,
                                                                           input_feed=input_feed)
         else:
-            outputs_embeds, past_key_values = self.vlm_session_prefill.run(self.output_names,
+            prefill_output_names = [inp.name for inp in self.vlm_session_prefill.get_outputs()]
+            outputs_embeds, *past_key_values = self.vlm_session_prefill.run(prefill_output_names,
                                                                    input_feed=input_feed)
 
         return outputs_embeds, past_key_values
