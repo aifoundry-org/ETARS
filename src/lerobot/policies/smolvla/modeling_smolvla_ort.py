@@ -142,8 +142,11 @@ class SmolVLAFlowOnnx():
         self.config = config
 
         self.vlme = SmolVLMWithExpertModelOnnx()
-        self.vlme_module = self.vlme.get_vlme_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_prefill.onnx"), Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_decode.onnx"))
-        self.text = self.vlme.get_text_encoder_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_text.onnx"))
+        self.vlme_module = self.vlme.get_vlme_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_prefill.onnx"), 
+                                                     Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_decode.onnx"), 
+                                                     provider="CPU")
+        self.text = self.vlme.get_text_encoder_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_text.onnx"), 
+                                                      provider="CPU")
 
 
         self.state_proj = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"), "CPU")
@@ -153,7 +156,8 @@ class SmolVLAFlowOnnx():
         self.action_time_mpl_out = OnnxModule(Path("/workspaces/hf_inference/models/smolvla_onnx/time_out_projector.onnx"), "CPU")
 
 
-        self.vision_module = self.vlme.get_visual_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_vision.onnx"))
+        self.vision_module = self.vlme.get_visual_module(Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_vision.onnx"), 
+                                                         provider="CPU")
 
         # class instance vars
         self.fake_image_token = self.vlme.processor.tokenizer.fake_image_token_id

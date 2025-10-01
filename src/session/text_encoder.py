@@ -44,6 +44,6 @@ def setup_text_encoder_session(model_path,
     elif provider == "ET":
         session_etglow = onnxruntime.InferenceSession(
             # fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'])
-            model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'])
+            model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
 
     return session_etglow

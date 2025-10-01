@@ -3,11 +3,7 @@ from src.session import vlm_exp
 from src.session.nn_session import OnnxModule
 
 from transformers import (
-    AutoConfig,
-    AutoModel,
-    AutoModelForImageTextToText,
     AutoProcessor,
-    SmolVLMForConditionalGeneration,
 )
 
 class SmolVLMWithExpertModelOnnx(OnnxModule):
@@ -15,32 +11,30 @@ class SmolVLMWithExpertModelOnnx(OnnxModule):
         self.model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"
 
         self.processor = AutoProcessor.from_pretrained(self.model_id)
-        # self.vlm_session = self.get_vlme_session(vlme_model_path)
 
         # Outputs are (vlm_emb, exp_emb, kv_cache...)
         # super.__init__()
 
-    def get_vlme_module(self, model_path_prefill: Path, model_path_decode: Path):
-        self.vlm_session_prefill = vlm_exp.setup_vlme_session(model_path_prefill, "CPU")
-        self.vlm_session_decode = vlm_exp.setup_vlme_session(model_path_decode, "CPU")
-        # self.num_kv_outputs = len(self.output_names) - 2
+    def get_vlme_module(self, model_path_prefill: Path, model_path_decode: Path, provider="CPU"):
+        self.vlm_session_prefill = vlm_exp.setup_vlme_session(model_path_prefill, provider, run_dir="prefill_model")
+        self.vlm_session_decode = vlm_exp.setup_vlme_session(model_path_decode, provider, run_dir="decode_model")
 
         return self
 
-    def get_text_encoder_module(self, model_path: Path) -> OnnxModule:
+    def get_text_encoder_module(self, model_path: Path, provider="CPU") -> OnnxModule:
         module = OnnxModule(model_path=model_path,
-                            provider="CPU",
+                            provider=provider,
                             fix_dimensions=False,
                             input_names=[],
-                            output_names=[])
+                            output_names=[],
+                            rundir="text_encoder")
         # Place to fill onnx_symbols
-        module.onnx_symbols = {}
 
         return module
 
-    def get_visual_module(self, model_path: Path):
+    def get_visual_module(self, model_path: Path, provider="CPU"):
         module = OnnxModule(model_path=model_path,
-                            provider="CPU",
+                            provider=provider,
                             fix_dimensions=False,
                             input_names=[],
                             output_names=[])

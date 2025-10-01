@@ -12,15 +12,16 @@ class OnnxModule:
                  provider: Literal["CPU", "ET"],
                  fix_dimensions=False,
                  input_names=[],
-                 output_names=[]) -> None:
+                 output_names=[],
+                 rundir="sessionrundir") -> None:
         self.session_options = onnxruntime.SessionOptions()
 
         self.num_layers = 0
         self.input_names = input_names
         self.output_names = output_names
 
-        self.rundir = "sessionrundir"
-        self.onnx_symbols = {}
+        self.rundir = rundir
+        self.onnx_symbols = {"batch": 1}
         self.session = self.__get_onnx_session(
             model_path, provider, fix_dimensions)
 
@@ -40,8 +41,10 @@ class OnnxModule:
                                                            onnx_symbols=self.onnx_symbols)
 
             session = onnxruntime.InferenceSession(
-                model_path, sess_options=self.session_options, providers=[
-                    'EtGlowExecutionProvider']
+                model_path, 
+                sess_options=self.session_options, 
+                providers=['EtGlowExecutionProvider'], 
+                provider_options=[provider_options]
             )
         elif provider == "CPU":
             session = onnxruntime.InferenceSession(
