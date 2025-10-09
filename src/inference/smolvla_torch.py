@@ -8,7 +8,9 @@ from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from lerobot.constants import OBS_IMAGE, OBS_STATE
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
+from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+from lerobot.policies.factory import make_policy
 
 REPO_ID = "lerobot/svla_so101_pickplace" 
 
@@ -17,14 +19,11 @@ N = 4
 idx0 = 0
 task_str = "Pick and place the object into the bin" 
 
-# policy.config.image_features[OBS_IMAGE] = 0
-# policy.config.chunk_size = 6 # Temp just for testing
-
-
 config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
 ds = LeRobotDataset("lerobot/svla_so101_pickplace")
 ds_meta = LeRobotDatasetMetadata("lerobot/svla_so101_pickplace")
-policy = SmolVLAPolicyOnnx(ds_meta=ds_meta.stats)
+config.pretrained_path = "lerobot/smolvla_base"
+policy = make_policy(cfg=config, ds_meta=ds_meta).eval()
 
 def set_deterministic(seed=0):
     random.seed(seed)
@@ -48,8 +47,8 @@ ds = LeRobotDataset("lerobot/svla_so101_pickplace")
 sample = ds[0]
 
 batch = {
-    "observation.image":   sample["observation.images.up"].unsqueeze(0),   # [B,C,H,W]
-    "observation.image2": sample["observation.images.side"].unsqueeze(0), # [B,C,H,W]
+    "observation.images.up":   sample["observation.images.up"].unsqueeze(0),   # [B,C,H,W]
+    "observation.images.side": sample["observation.images.side"].unsqueeze(0), # [B,C,H,W]
     "observation.state":       sample["observation.state"].unsqueeze(0),       # [B,6]
     "task": ["Pick and place the object"],  # dataset is single-task; any reasonable string works
 }
@@ -57,10 +56,9 @@ batch = {
 
 
 with torch.inference_mode():
-    out = policy.select_action(batch)
-    # out2 = policy2.select_action(batch)
+    # out = policy.select_action(batch)
+    policy.model.to(torch.float32)
+    out2 = policy.select_action(batch)
 
-print("--------------------------------------------------------------")
-print(f"Taken action is {out}")
-# act = out["action"] if isinstance(out, dict) and "action" in out else out
-# print(f"frame {i}: action shape {tuple(act.shape)}")
+# print(out)
+print(out2)

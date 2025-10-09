@@ -44,7 +44,7 @@ class OnnxModule:
                 model_path, 
                 sess_options=self.session_options, 
                 providers=['EtGlowExecutionProvider'], 
-                provider_options=[provider_options]
+                # provider_options=[provider_options]
             )
         elif provider == "CPU":
             session = onnxruntime.InferenceSession(

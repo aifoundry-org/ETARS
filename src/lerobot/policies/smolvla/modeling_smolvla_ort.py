@@ -164,38 +164,38 @@ class SmolVLAFlowOnnx:
             Path(
                 "/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_decode.onnx"
             ),
-            provider="CPU",
+            provider="ET",
         )
         self.text = self.vlme.get_text_encoder_module(
             Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_text.onnx"),
-            provider="CPU",
+            provider="ET",
         )
 
         self.state_proj = OnnxModule(
             Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"),
-            "CPU",
+            "ET",
         )
         self.action_in_proj = OnnxModule(
             Path(
                 "/workspaces/hf_inference/models/smolvla_onnx/action_in_projector.onnx"
             ),
-            "CPU",
+            "ET",
         )
         self.action_out_proj = OnnxModule(
             Path(
                 "/workspaces/hf_inference/models/smolvla_onnx/action_out_projector.onnx"
             ),
-            "CPU",
+            "ET",
         )
         self.action_time_mlp_in = OnnxModule(
             Path("/workspaces/hf_inference/models/smolvla_onnx/time_in_projector.onnx"),
-            "CPU",
+            "ET",
         )
         self.action_time_mpl_out = OnnxModule(
             Path(
                 "/workspaces/hf_inference/models/smolvla_onnx/time_out_projector.onnx"
             ),
-            "CPU",
+            "ET",
         )
 
         self.vision_module = self.vlme.get_visual_module(
@@ -348,6 +348,7 @@ class SmolVLAFlowOnnx:
         ]  # noisy actions (1, 50, 32)
 
 
+
         bsize = action_emb.shape[0]
         dtype = action_emb.dtype
 
@@ -373,10 +374,11 @@ class SmolVLAFlowOnnx:
         )[
             0
         ]  # action_time_emb.shape torch.Size([1, 50, 1440])
+        
         # TODO chech if swish is in supported onnx's opset
         action_time_emb = silu(action_time_emb)
         action_time_emb = self.action_time_mpl_out(
-            **{self.action_time_mpl_out.input_names[0]: action_emb}
+            **{self.action_time_mpl_out.input_names[0]: action_time_emb}
         )[
             0
         ]  # action_time_emb.shape torch.Size([1, 50, 720])
