@@ -5,7 +5,6 @@ import torch
 
 from pathlib import Path
 
-from src.session import vision, text_encoder, head, vlm_exp, state
 from src.lerobot.policies.smolvla.smolvlm_with_expert_onnx import (
     SmolVLMWithExpertModelOnnx,
 )
@@ -24,10 +23,6 @@ from src.lerobot.policies.normalize import (
     Unnormalize
 )
 
-# from lerobot.policies.normalize import (
-#     Normalize,
-#     Unnormalize,
-# )
 from src.lerobot.policies.smolvla import constants
 
 
@@ -51,11 +46,6 @@ def make_att_2d_masks(pad_masks: np.ndarray, att_masks: np.ndarray) -> np.ndarra
     # Combine the attention and padding masks
     att_2d_masks = att_2d_masks & pad_2d_masks
     return att_2d_masks
-
-
-# numpy implementation of original, obvs slower then torch's
-# TODO probably rewrite in onnx
-
 
 def create_sinusoidal_pos_embedding(
     time: np.ndarray, dimension: int, min_period: float, max_period: float
@@ -156,52 +146,44 @@ class SmolVLAFlowOnnx:
 
         self.config = config
 
-        self.vlme = SmolVLMWithExpertModelOnnx()
+        self.vlme = SmolVLMWithExpertModelOnnx(hf_repo="ainekko/smolvla_base_onnx")
         self.vlme_module = self.vlme.get_vlme_module(
-            Path(
-                "/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_prefill.onnx"
-            ),
-            Path(
-                "/workspaces/hf_inference/models/smolvla_onnx/smolvlm_expert_decode.onnx"
-            ),
-            provider="ET",
+            provider="CPU"
         )
         self.text = self.vlme.get_text_encoder_module(
-            Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_text.onnx"),
-            provider="ET",
+            provider="CPU"
+        )
+        self.vision_module = self.vlme.get_visual_module(
+            provider="CPU"
         )
 
+
+        # self.state_proj = OnnxModule(
+            # Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"),
+            # "CPU",
+        # )
         self.state_proj = OnnxModule(
-            Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"),
-            "ET",
+            provider="CPU",
+            hf_repo="ainekko/smolvla_base_onnx", hf_filename="state_projector.onnx"
         )
+
         self.action_in_proj = OnnxModule(
-            Path(
-                "/workspaces/hf_inference/models/smolvla_onnx/action_in_projector.onnx"
-            ),
-            "ET",
+            provider="CPU",
+            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_in_projector.onnx"
         )
         self.action_out_proj = OnnxModule(
-            Path(
-                "/workspaces/hf_inference/models/smolvla_onnx/action_out_projector.onnx"
-            ),
-            "ET",
+            provider="CPU",
+            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_out_projector.onnx"
         )
         self.action_time_mlp_in = OnnxModule(
-            Path("/workspaces/hf_inference/models/smolvla_onnx/time_in_projector.onnx"),
-            "ET",
+            provider="CPU",
+            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_in_projector.onnx"
         )
         self.action_time_mpl_out = OnnxModule(
-            Path(
-                "/workspaces/hf_inference/models/smolvla_onnx/time_out_projector.onnx"
-            ),
-            "ET",
+            provider="CPU",
+            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_out_projector.onnx"
         )
 
-        self.vision_module = self.vlme.get_visual_module(
-            Path("/workspaces/hf_inference/models/smolvla_onnx/smolvlm_vision.onnx"),
-            provider="CPU",
-        )
 
         # class instance vars
         self.fake_image_token = self.vlme.processor.tokenizer.fake_image_token_id

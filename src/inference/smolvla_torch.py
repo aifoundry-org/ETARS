@@ -56,9 +56,7 @@ batch = {
 
 
 with torch.inference_mode():
-    # out = policy.select_action(batch)
     policy.model.to(torch.float32)
-    out2 = policy.select_action(batch)
+    out = policy.select_action(batch)
 
-# print(out)
-print(out2)
+print(out)

@@ -3,6 +3,7 @@ import time
 
 from src.session.utils import get_etglow_provider_options, set_verbose_output, fix_model_dimensions
 
+# DEPRECATED!
 
 def get_vlme_onnx_symbols(sequence_size=20):
     symbols = {

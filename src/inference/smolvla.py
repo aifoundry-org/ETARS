@@ -17,9 +17,6 @@ N = 4
 idx0 = 0
 task_str = "Pick and place the object into the bin" 
 
-# policy.config.image_features[OBS_IMAGE] = 0
-# policy.config.chunk_size = 6 # Temp just for testing
-
 
 config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
 ds = LeRobotDataset("lerobot/svla_so101_pickplace")
@@ -48,8 +45,8 @@ ds = LeRobotDataset("lerobot/svla_so101_pickplace")
 sample = ds[0]
 
 batch = {
-    "observation.image":   sample["observation.images.up"].unsqueeze(0),   # [B,C,H,W]
-    "observation.image2": sample["observation.images.side"].unsqueeze(0), # [B,C,H,W]
+    "observation.images.camera1":   sample["observation.images.up"].unsqueeze(0),   # [B,C,H,W]
+    "observation.images.camera2": sample["observation.images.side"].unsqueeze(0), # [B,C,H,W]
     "observation.state":       sample["observation.state"].unsqueeze(0),       # [B,6]
     "task": ["Pick and place the object"],  # dataset is single-task; any reasonable string works
 }
@@ -58,9 +55,6 @@ batch = {
 
 with torch.inference_mode():
     out = policy.select_action(batch)
-    # out2 = policy2.select_action(batch)
 
 print("--------------------------------------------------------------")
 print(f"Taken action is {out}")
-# act = out["action"] if isinstance(out, dict) and "action" in out else out
-# print(f"frame {i}: action shape {tuple(act.shape)}")
