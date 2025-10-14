@@ -192,7 +192,7 @@ class OnnxModule:
                                                             use_kvc=False,
                                                             onnx_symbols=self.onnx_symbols)
             else:
-                provider_options = []
+                provider_options = {}
 
             session = onnxruntime.InferenceSession(
                 model_path, 

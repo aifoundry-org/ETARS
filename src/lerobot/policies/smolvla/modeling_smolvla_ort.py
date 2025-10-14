@@ -1,10 +1,8 @@
 import math
 import numpy as np
-import onnxruntime as ort
 import torch
 
-from pathlib import Path
-
+from typing import Literal
 from src.lerobot.policies.smolvla.smolvlm_with_expert_onnx import (
     SmolVLMWithExpertModelOnnx,
 )
@@ -22,8 +20,6 @@ from src.lerobot.policies.normalize import (
     Normalize,
     Unnormalize
 )
-
-from src.lerobot.policies.smolvla import constants
 
 
 def make_att_2d_masks(pad_masks: np.ndarray, att_masks: np.ndarray) -> np.ndarray:
@@ -47,6 +43,7 @@ def make_att_2d_masks(pad_masks: np.ndarray, att_masks: np.ndarray) -> np.ndarra
     att_2d_masks = att_2d_masks & pad_2d_masks
     return att_2d_masks
 
+
 def create_sinusoidal_pos_embedding(
     time: np.ndarray, dimension: int, min_period: float, max_period: float
 ) -> np.ndarray:
@@ -55,7 +52,8 @@ def create_sinusoidal_pos_embedding(
         raise ValueError(f"dimension ({dimension}) must be divisible by 2")
 
     if time.ndim != 1:
-        raise ValueError("The time tensor is expected to be of shape `(batch_size, )`.")
+        raise ValueError(
+            "The time tensor is expected to be of shape `(batch_size, )`.")
 
     dtype = np.float64
     fraction = np.linspace(0.0, 1.0, dimension // 2, dtype=dtype)
@@ -96,21 +94,23 @@ def pad_tensor(tensor, max_len, pad_value=0):
 
 class SmolVLAPolicyOnnx(SmolVLAPolicy):
 
-    def __init__(self, ds_meta=None):
-        self.config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
+    def __init__(self, config=None, ds_meta=None):
         name = "smolvla"
-        config = self.config
+        if not config:
+            self.config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
+        else:
+            self.config = config
         dataset_stats = ds_meta
 
         # Normalize is Fake
         self.normalize_inputs = Normalize(
-            config.input_features, config.normalization_mapping, dataset_stats
+            self.config.input_features, self.config.normalization_mapping, dataset_stats
         )
         self.normalize_targets = Normalize(
-            config.output_features, config.normalization_mapping, dataset_stats
+            self.config.output_features, self.config.normalization_mapping, dataset_stats
         )
         self.unnormalize_outputs = Unnormalize(
-            config.output_features, config.normalization_mapping, dataset_stats
+            self.config.output_features, self.config.normalization_mapping, dataset_stats
         )
 
         self.language_tokenizer = AutoProcessor.from_pretrained(
@@ -145,44 +145,48 @@ class SmolVLAFlowOnnx:
 
         self.config = config
 
-        self.vlme = SmolVLMWithExpertModelOnnx(hf_repo="ainekko/smolvla_base_onnx")
+        if config.device:
+            device = config.device.upper()
+        else:
+            device = "CPU"
+
+        self.vlme = SmolVLMWithExpertModelOnnx(
+            hf_repo="ainekko/smolvla_base_onnx")
         self.vlme_module = self.vlme.get_vlme_module(
-            provider="CPU"
+            provider=device
         )
         self.text = self.vlme.get_text_encoder_module(
-            provider="CPU"
+            provider=device
         )
         self.vision_module = self.vlme.get_visual_module(
             provider="CPU"
         )
 
-
         # self.state_proj = OnnxModule(
-            # Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"),
-            # "CPU",
+        # Path("/workspaces/hf_inference/models/smolvla_onnx/state_projector.onnx"),
+        # "CPU",
         # )
         self.state_proj = OnnxModule(
-            provider="CPU",
+            provider=device,
             hf_repo="ainekko/smolvla_base_onnx", hf_filename="state_projector.onnx"
         )
 
         self.action_in_proj = OnnxModule(
-            provider="CPU",
+            provider=device,
             hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_in_projector.onnx"
         )
         self.action_out_proj = OnnxModule(
-            provider="CPU",
+            provider=device,
             hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_out_projector.onnx"
         )
         self.action_time_mlp_in = OnnxModule(
-            provider="CPU",
+            provider=device,
             hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_in_projector.onnx"
         )
         self.action_time_mpl_out = OnnxModule(
-            provider="CPU",
+            provider=device,
             hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_out_projector.onnx"
         )
-
 
         # class instance vars
         self.fake_image_token = self.vlme.processor.tokenizer.fake_image_token_id
@@ -208,9 +212,9 @@ class SmolVLAFlowOnnx:
             dtype=torch.float32
         ).numpy()
         # noise = np.random.normal(
-            # loc=0.0,
-            # scale=1.0,
-            # size=shape,
+        # loc=0.0,
+        # scale=1.0,
+        # size=shape,
         # ).astype(np.float32)
         return noise
 
@@ -245,7 +249,8 @@ class SmolVLAFlowOnnx:
 
             # img = (img.numpy() * 255).astype(np.uint8)
             img = img.numpy()
-            img_emb = self.vision_module(**{self.vision_module.input_names[0]: img})[0]
+            img_emb = self.vision_module(
+                **{self.vision_module.input_names[0]: img})[0]
 
             # Normalize image embeddings
             img_emb_dim = img_emb.shape[-1]
@@ -285,7 +290,8 @@ class SmolVLAFlowOnnx:
         # Interestingly enough state from dataset may be slightly different from time to time
         # Need to make it more deterministic
         state = state.numpy()  # TODO mode into onnx_module
-        state_emb = self.state_proj(**{self.state_proj.input_names[0]: state})[0]
+        state_emb = self.state_proj(
+            **{self.state_proj.input_names[0]: state})[0]
         state_emb = state_emb[:, None, :] if state_emb.ndim == 2 else state_emb
         embs.append(state_emb)
         bsize = state_emb.shape[0]
@@ -328,8 +334,6 @@ class SmolVLAFlowOnnx:
             0
         ]  # noisy actions (1, 50, 32)
 
-
-
         bsize = action_emb.shape[0]
         dtype = action_emb.dtype
 
@@ -355,7 +359,7 @@ class SmolVLAFlowOnnx:
         )[
             0
         ]  # action_time_emb.shape torch.Size([1, 50, 1440])
-        
+
         # TODO chech if swish is in supported onnx's opset
         action_time_emb = silu(action_time_emb)
         action_time_emb = self.action_time_mpl_out(
@@ -376,7 +380,8 @@ class SmolVLAFlowOnnx:
         embs = np.concatenate(embs, axis=1)
         pad_masks = np.concatenate(pad_masks, axis=1)
         att_masks = np.array(att_masks)
-        att_masks = np.broadcast_to(att_masks[None, :], (bsize, len(att_masks)))
+        att_masks = np.broadcast_to(
+            att_masks[None, :], (bsize, len(att_masks)))
 
         return embs, pad_masks, att_masks
 
@@ -392,43 +397,6 @@ class SmolVLAFlowOnnx:
         time=None,
     ):
         raise NotImplementedError("Forward not yet implemented")
-        if noise is None:
-            noise = self.sample_noise(actions.shape)
-
-        if time is None:
-            time = self.sample_time(actions.shape[0])
-
-        time_expanded = time[:, None, None]
-        x_t = time_expanded * noise + (1 - time_expanded) * actions
-        u_t = noise - actions
-        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
-            images, img_masks, lang_tokens, lang_masks, state=state
-        )
-
-        suffix_embs, suffix_pad_masks, suffix_att_masks = self.embed_suffix(x_t, time)
-
-        pad_masks = np.concatenate([prefix_pad_masks, suffix_pad_masks], axis=1)
-        att_masks = np.concatenate([prefix_att_masks, suffix_att_masks], axis=1)
-
-        att_2d_masks = make_att_2d_masks(pad_masks, att_masks)
-        position_ids = np.cumsum(pad_masks, axis=1) - 1
-
-        (_, suffix_out), _ = self.vlme.forward(
-            vlm_embeds=prefix_embs,
-            expert_embeds=suffix_embs,
-            attention_mask=att_2d_masks,
-            position_ids=position_ids,
-            fill_kv_cache=False,
-            past_key_values=None,
-        )
-
-        suffix_out = suffix_out[:, -self.config.chunk_size :]
-        # Original openpi code, upcast attention output
-        # suffix_out = suffix_out.to(dtype=torch.float32)
-        v_t = self.action_out_proj(**{self.action_out_proj.output_names[0]: suffix_out})
-        losses = mse_loss(u_t, v_t, reduction="none")
-
-        return losses
 
     def sample_actions(
         self, images, img_masks, lang_tokens, lang_masks, state, noise=None
@@ -437,14 +405,16 @@ class SmolVLAFlowOnnx:
         bsize = state.shape[0]
 
         if noise is None:
-            actions_shape = (bsize, self.config.chunk_size, self.config.max_action_dim)
+            actions_shape = (bsize, self.config.chunk_size,
+                             self.config.max_action_dim)
             noise = self.sample_noise(actions_shape)
 
         prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
             images, img_masks, lang_tokens, lang_masks, state=state
         )
 
-        prefix_add_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
+        prefix_add_2d_masks = make_att_2d_masks(
+            prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = np.cumsum(prefix_pad_masks, axis=1) - 1
 
         # Compute image and language key value cache
@@ -455,7 +425,6 @@ class SmolVLAFlowOnnx:
             position_ids=prefix_position_ids,
             fill_kv_cache=True,
         )
-
 
         dt = -1.0 / self.config.num_steps
         dt = np.array(dt, dtype=np.float32)
@@ -485,10 +454,12 @@ class SmolVLAFlowOnnx:
         batch_size = prefix_pad_masks.shape[0]
         prefix_len = prefix_pad_masks.shape[1]
         prefix_pad_2d_masks = np.broadcast_to(
-            prefix_pad_masks[:, np.newaxis, :], (batch_size, suffix_len, prefix_len)
+            prefix_pad_masks[:, np.newaxis,
+                             :], (batch_size, suffix_len, prefix_len)
         ).copy()
 
-        suffix_att_2d_masks = make_att_2d_masks(suffix_pad_masks, suffix_att_masks)
+        suffix_att_2d_masks = make_att_2d_masks(
+            suffix_pad_masks, suffix_att_masks)
 
         full_att_2d_masks = np.concatenate(
             [prefix_pad_2d_masks, suffix_att_2d_masks], axis=2
@@ -509,7 +480,8 @@ class SmolVLAFlowOnnx:
         )
         # outputs_embeds[1].shape torch.Size([1, 50, 720])
         suffix_out = output_embeds
-        suffix_out = suffix_out[:, -self.config.chunk_size :]
+        suffix_out = suffix_out[:, -self.config.chunk_size:]
         suffix_out = suffix_out.astype(dtype=np.float32)
-        v_t = self.action_out_proj(**{self.action_out_proj.input_names[0]: suffix_out})
+        v_t = self.action_out_proj(
+            **{self.action_out_proj.input_names[0]: suffix_out})
         return v_t
