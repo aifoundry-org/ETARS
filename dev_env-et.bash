@@ -7,5 +7,5 @@ docker run --rm -it \
   --security-opt seccomp=unconfined \
   -v "$(pwd)":/workspace:cached \
   -w /workspace \
-  ghcr.io/nekkoai/onnxruntime:latest \
+  ghcr.io/nekkoai/nutcracker-legacy:0.1 \
   /bin/bash

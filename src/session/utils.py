@@ -5,7 +5,6 @@ from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed
 from pathlib import Path
 
 def get_etglow_api_params(num_layers,
-
                           run_dir,
                           use_kvc,
                           iobindings=False,

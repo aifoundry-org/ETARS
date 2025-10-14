@@ -4,4 +4,7 @@ venv
 *.code-workspace
 onnxruntime_bundles
 
+Compiled*
+EtGlow*
+
 *.pyc
