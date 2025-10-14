@@ -99,7 +99,6 @@ class SmolVLAPolicyOnnx(SmolVLAPolicy):
     def __init__(self, ds_meta=None):
         self.config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
         name = "smolvla"
-        # self.config = SmolVLAConfig(input_features=constants.INPUT_FEATURES, output_features=constants.OUTPUT_FEATURES)
         config = self.config
         dataset_stats = ds_meta
 
