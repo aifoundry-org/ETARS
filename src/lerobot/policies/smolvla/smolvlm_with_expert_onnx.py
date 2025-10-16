@@ -1,5 +1,4 @@
 from pathlib import Path
-from src.session import vlm_exp
 from src.session.nn_session import OnnxModule
 from typing import Optional
 
