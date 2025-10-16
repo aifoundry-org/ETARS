@@ -34,7 +34,7 @@ def dataset():
 
 @pytest.fixture(scope="session")
 def policies():
-    config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")  # ensures config present
+    config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base", revision="3326b100334ffc0a0bd1ec27e3afb1cfa2a6000c")  # ensures config present
     config.pretrained_path = "lerobot/smolvla_base"
     meta = LeRobotDatasetMetadata("lerobot/svla_so101_pickplace")
 
