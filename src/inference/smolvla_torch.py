@@ -9,7 +9,7 @@ from src.utils.deterministrc import set_deterministic
 
 set_deterministic(0)
 
-config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
+config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base", revision="3326b100334ffc0a0bd1ec27e3afb1cfa2a6000c")
 ds = LeRobotDataset("lerobot/svla_so101_pickplace")
 ds_meta = LeRobotDatasetMetadata("lerobot/svla_so101_pickplace")
 config.pretrained_path = "lerobot/smolvla_base"
