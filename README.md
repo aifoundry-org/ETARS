@@ -54,6 +54,7 @@ This repository focuses exclusively on inference, providing an ONNXRuntime integ
 4. **Install dependencies**
 
    ```bash
+   apt-get update && apt-get install -y libosmesa6 libosmesa6-dev git cmake libglib2.0-0
    pip install --upgrade-strategy only-if-needed -r requirements.txt
    ```
 

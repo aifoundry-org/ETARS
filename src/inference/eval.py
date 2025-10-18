@@ -91,6 +91,13 @@ from lerobot.utils.utils import (
     inside_slurm,
 )
 
+def show_or_save(img, out_path="sim_frame.png"):
+    import cv2
+    try:
+        cv2.imshow("Simulation", img)
+        cv2.waitKey(1)  # minimal event pump; non-blocking
+    except Exception:
+        cv2.imwrite(out_path, img)
 
 def rollout(
     env: gym.vector.VectorEnv,
@@ -294,8 +301,7 @@ def eval_policy(
         n_to_render_now = min(max_episodes_rendered - n_episodes_rendered, env.num_envs)
         if isinstance(env, gym.vector.SyncVectorEnv):
             frame = np.stack([env.envs[i].render() for i in range(n_to_render_now)])
-            cv2.imshow("Simulation", frame[0])
-            cv2.waitKey(1)
+            show_or_save(frame[0])
             ep_frames.append(frame)  # noqa: B023
         elif isinstance(env, gym.vector.AsyncVectorEnv):
             # Here we must render all frames and discard any we don't need.
@@ -524,14 +530,15 @@ def eval_main():
 
     logging.info(colored("Output dir:", "yellow", attrs=["bold"]) + f" {cfg.output_dir}")
 
-    logging.info("Making environment.")
-    envs = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
 
     logging.info("Making policy.")
 
     config.device = args.device 
     policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats, repo="ainekko/smolvla_libero_sim_onnx")
     policy.eval()
+
+    logging.info("Making environment.")
+    envs = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
     
     config.device = "cpu"
     preprocessor, postprocessor = make_pre_post_processors(
