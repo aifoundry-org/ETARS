@@ -90,7 +90,7 @@ Each script loads a dataset sample and performs a single policy `sample_action` 
 To verify consistency between ONNXRuntime and Torch-based outputs:
 
 ```bash
-pytest src/tests/test_compare_policies.py
+PYTHONPATH=. pytest -s  src/tests/test_compare_policies.py
 ```
 
 This test executes both inference paths and performs a numerical comparison of their outputs.

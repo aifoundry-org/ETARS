@@ -34,7 +34,7 @@ class Normalize:
             buf = self._buffers.get(_bufname(key), None)
             if buf is None:
                 raise AssertionError(f"Missing stats buffer for '{key}'")
-            x = out[key]
+            x = np.asarray(out[key])
             if mode is NormalizationMode.MEAN_STD:
                 mean = buf["mean"]; std = buf["std"]
                 assert not np.isinf(mean).any(), "Invalid mean (inf)."
@@ -49,7 +49,7 @@ class Normalize:
             else:
                 raise ValueError(mode)
             
-            out[key] = out[key].to(torch.float32)
+            out[key] = torch.from_numpy(out[key]).to(torch.float32)
         return out
     
     def __call__(self, *args, **kwargs):
@@ -78,7 +78,8 @@ class Unnormalize:
             buf = self._buffers.get(_bufname(key), None)
             if buf is None:
                 raise AssertionError(f"Missing stats buffer for '{key}'")
-            x = out[key]
+            # x = out[key]
+            x = np.asarray(out[key])
             if mode is NormalizationMode.MEAN_STD:
                 mean = buf["mean"]; std = buf["std"]
                 assert not np.isinf(mean).any(), "Invalid mean (inf)."
@@ -93,7 +94,7 @@ class Unnormalize:
             else:
                 raise ValueError(mode)
 
-            out[key] = out[key].to(torch.float32)
+            out[key] = torch.from_numpy(out[key]).to(torch.float32)
         return out
     
     def __call__(self, *args, **kwargs):
