@@ -96,6 +96,10 @@ PYTHONPATH=. pytest -s  src/tests/test_compare_policies.py
 
 This test executes both inference paths and performs a numerical comparison of their outputs.
 
+To run a testing simulation:
+
+`run_eval_cpu.bash` or `run_eval_et.bash`
+
 ---
 
 ## Repository Structure
