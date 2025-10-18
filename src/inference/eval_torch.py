@@ -169,7 +169,6 @@ def rollout(
         observation = preprocessor(observation)
         with torch.inference_mode():
             action = policy.select_action(observation)
-        print(f" Taken action: {action}")
         action = postprocessor(action)
 
         # Convert to CPU / numpy.
@@ -490,25 +489,12 @@ def _compile_episode_data(
 # @parser.wrap()
 def eval_main():
     import sys
-    import argparse
     from lerobot.envs.configs import LiberoEnv
     from lerobot.configs.policies import PreTrainedConfig
-    from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
-    from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
 
-    parser = argparse.ArgumentParser(description="Run SmolVLA policy evaluation in sim.")
-    parser.add_argument(
-        "--device",
-        choices=["CPU", "ET"],
-        default="CPU",
-        help='Execution device for policy backend (default: "CPU")',
-    )
-    args = parser.parse_args()
-    
     sys.argv += ["--policy.path=HuggingFaceVLA/smolvla_libero"]
     config = PreTrainedConfig.from_pretrained("HuggingFaceVLA/smolvla_libero")
     config.pretrained_path = "HuggingFaceVLA/smolvla_libero"
-    ds_meta = LeRobotDatasetMetadata("aifoundry-org/libero")
 
     cfg = EvalPipelineConfig(env=LiberoEnv(), policy=config, output_dir="outputs")
     cfg.eval.batch_size = 1
@@ -529,18 +515,19 @@ def eval_main():
 
     logging.info("Making policy.")
 
-    config.device = args.device 
-    policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats, repo="ainekko/smolvla_libero_sim_onnx")
+    policy = make_policy(
+        cfg=cfg.policy,
+        env_cfg=cfg.env,
+    )
+
     policy.eval()
-    
-    config.device = "cpu"
     preprocessor, postprocessor = make_pre_post_processors(
         policy_cfg=cfg.policy,
         pretrained_path=cfg.policy.pretrained_path,
         # The inference device is automatically set to match the detected hardware, overriding any previous device settings from training to ensure compatibility.
         preprocessor_overrides={"device_processor": {"device": str(policy.config.device)}},
     )
-    with torch.no_grad():
+    with torch.no_grad(), torch.autocast(device_type=device.type) if cfg.policy.use_amp else nullcontext():
         info = eval_policy_all(
             envs=envs,
             policy=policy,
