@@ -151,7 +151,7 @@ class SmolVLAFlowOnnx:
             device = "CPU"
 
         self.vlme = SmolVLMWithExpertModelOnnx(
-            hf_repo="ainekko/smolvla_base_onnx")
+            hf_repo="ainekko/smolvla_libero_onnx")
         self.vlme_module = self.vlme.get_vlme_module(
             provider=device
         )
@@ -168,24 +168,24 @@ class SmolVLAFlowOnnx:
         # )
         self.state_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="state_projector.onnx"
+            hf_repo="ainekko/smolvla_libero_onnx", hf_filename="state_projector.onnx"
         )
 
         self.action_in_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_in_projector.onnx"
+            hf_repo="ainekko/smolvla_libero_onnx", hf_filename="action_in_projector.onnx"
         )
         self.action_out_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_out_projector.onnx"
+            hf_repo="ainekko/smolvla_libero_onnx", hf_filename="action_out_projector.onnx"
         )
         self.action_time_mlp_in = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_in_projector.onnx"
+            hf_repo="ainekko/smolvla_libero_onnx", hf_filename="time_in_projector.onnx"
         )
         self.action_time_mpl_out = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_out_projector.onnx"
+            hf_repo="ainekko/smolvla_libero_onnx", hf_filename="time_out_projector.onnx"
         )
 
         # class instance vars
@@ -201,7 +201,8 @@ class SmolVLAFlowOnnx:
         self.prefix_length = self.config.prefix_length
 
         # Properties
-        self.expert_hidden_size = 720
+        # self.expert_hidden_size = 720
+        self.expert_hidden_size = 480 # Determine this value automatically!
 
     @staticmethod
     def sample_noise(shape):
