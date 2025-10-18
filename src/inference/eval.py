@@ -93,11 +93,12 @@ from lerobot.utils.utils import (
 
 def show_or_save(img, out_path="sim_frame.png"):
     import cv2
-    try:
-        cv2.imshow("Simulation", img)
-        cv2.waitKey(1)  # minimal event pump; non-blocking
-    except Exception:
-        cv2.imwrite(out_path, img)
+    cv2.imwrite(out_path, img)
+    # try:
+        # cv2.imshow("Simulation", img)
+        # cv2.waitKey(1)  # minimal event pump; non-blocking
+    # except Exception:
+        # cv2.imwrite(out_path, img)
 
 def rollout(
     env: gym.vector.VectorEnv,
