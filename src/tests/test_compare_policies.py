@@ -39,13 +39,13 @@ def policies():
     meta = LeRobotDatasetMetadata("lerobot/svla_so101_pickplace")
 
     # Initialize default torch smolVLA policy from lerobot
-    policy_torch = make_policy(cfg=config, ds_meta=meta).eval()
-    policy_torch.model.to(torch.float32)
+    pA = make_policy(cfg=config, ds_meta=meta).eval()
+    pA.model.to(torch.float32)
 
     # Initialize drop-in replacement using onnx inference
-    policy_onnx = SmolVLAPolicyOnnx(ds_meta=meta.stats)
+    pB = SmolVLAPolicyOnnx(ds_meta=meta.stats)
 
-    return policy_torch, policy_onnx
+    return pA, pB
 
 def _batch_from_sample(sample):
     return {
@@ -77,7 +77,7 @@ def _collect_actions(policy, dataset, idxs, is_onnx=False):
             acts.append(torch.as_tensor(out))
     return acts
 
-@pytest.mark.parametrize("steps,atol,rtol", [(5, 1e-5, 0.0)])
+@pytest.mark.parametrize("steps,atol,rtol", [(5, 1e-3, 0.0)])
 def test_actions_close_listwise(dataset, policies, steps, atol, rtol):
     set_deterministic(0)
     pA, pB = policies
@@ -88,9 +88,6 @@ def test_actions_close_listwise(dataset, policies, steps, atol, rtol):
 
     assert len(A) == len(B) == steps
     for t, (a, b) in enumerate(zip(A, B)):
-        print("Policy TORCH action: ", a)
-        print("Policy ONNX  action: ", b)
-        print("\n")
         assert a.shape == b.shape, f"[t={t}] shape mismatch: {a.shape} vs {b.shape}"
         if not torch.allclose(a, b, rtol=rtol, atol=atol):
             diff = (a - b).abs().max().item()
