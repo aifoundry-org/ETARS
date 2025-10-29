@@ -69,6 +69,7 @@ from termcolor import colored
 from torch import Tensor, nn
 from tqdm import trange
 import cv2
+import os
 
 from lerobot.configs import parser
 from lerobot.configs.eval import EvalPipelineConfig
@@ -92,13 +93,14 @@ from lerobot.utils.utils import (
 )
 
 def show_or_save(img, out_path="sim_frame.png"):
-    import cv2
-    cv2.imwrite(out_path, img)
-    # try:
-        # cv2.imshow("Simulation", img)
-        # cv2.waitKey(1)  # minimal event pump; non-blocking
-    # except Exception:
-        # cv2.imwrite(out_path, img)
+    if bool(os.environ.get("DISPLAY")):
+        try:
+            cv2.imshow("Simulation", img)
+            cv2.waitKey(1)  # minimal event pump; non-blocking
+        except:
+            cv2.imwrite(out_path, img)
+    else:
+        cv2.imwrite(out_path, img)
 
 def rollout(
     env: gym.vector.VectorEnv,
