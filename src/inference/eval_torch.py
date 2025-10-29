@@ -69,7 +69,6 @@ from termcolor import colored
 from torch import Tensor, nn
 from tqdm import trange
 import cv2
-import os
 
 from lerobot.configs import parser
 from lerobot.configs.eval import EvalPipelineConfig
@@ -92,15 +91,6 @@ from lerobot.utils.utils import (
     inside_slurm,
 )
 
-def show_or_save(img, out_path="sim_frame.png"):
-    if bool(os.environ.get("DISPLAY")):
-        try:
-            cv2.imshow("Simulation", img)
-            cv2.waitKey(1)  # minimal event pump; non-blocking
-        except:
-            cv2.imwrite(out_path, img)
-    else:
-        cv2.imwrite(out_path, img)
 
 def rollout(
     env: gym.vector.VectorEnv,
@@ -179,7 +169,6 @@ def rollout(
         observation = preprocessor(observation)
         with torch.inference_mode():
             action = policy.select_action(observation)
-        print(f" Taken action: {action}")
         action = postprocessor(action)
 
         # Convert to CPU / numpy.
@@ -304,7 +293,8 @@ def eval_policy(
         n_to_render_now = min(max_episodes_rendered - n_episodes_rendered, env.num_envs)
         if isinstance(env, gym.vector.SyncVectorEnv):
             frame = np.stack([env.envs[i].render() for i in range(n_to_render_now)])
-            show_or_save(frame[0])
+            cv2.imshow("Simulation", frame[0])
+            cv2.waitKey(1)
             ep_frames.append(frame)  # noqa: B023
         elif isinstance(env, gym.vector.AsyncVectorEnv):
             # Here we must render all frames and discard any we don't need.
@@ -499,53 +489,45 @@ def _compile_episode_data(
 # @parser.wrap()
 def eval_main():
     import sys
-    import argparse
     from lerobot.envs.configs import LiberoEnv
     from lerobot.configs.policies import PreTrainedConfig
-    from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
-    from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
 
-    parser = argparse.ArgumentParser(description="Run SmolVLA policy evaluation in sim.")
-    parser.add_argument(
-        "--device",
-        choices=["CPU", "ET"],
-        default="CPU",
-        help='Execution device for policy backend (default: "CPU")',
-    )
-    args = parser.parse_args()
-    repo = "ainekko/smolvla_libero_sim_onnx"
-    
-    config = PreTrainedConfig.from_pretrained(repo)
-    config.pretrained_path = repo
-    ds_meta = LeRobotDatasetMetadata("aifoundry-org/libero")
+    sys.argv += ["--policy.path=HuggingFaceVLA/smolvla_libero"]
+    config = PreTrainedConfig.from_pretrained("HuggingFaceVLA/smolvla_libero")
+    config.pretrained_path = "HuggingFaceVLA/smolvla_libero"
 
     cfg = EvalPipelineConfig(env=LiberoEnv(), policy=config, output_dir="outputs")
     cfg.eval.batch_size = 1
     cfg.eval.n_episodes = 1
     logging.info(pformat(asdict(cfg)))
 
+    # Check device is available
+    # device = get_safe_torch_device(cfg.policy.device, log=True)
+
+    # torch.backends.cudnn.benchmark = True
+    # torch.backends.cuda.matmul.allow_tf32 = True
     set_seed(cfg.seed)
 
     logging.info(colored("Output dir:", "yellow", attrs=["bold"]) + f" {cfg.output_dir}")
 
+    logging.info("Making environment.")
+    envs = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
 
     logging.info("Making policy.")
 
-    config.device = args.device 
-    policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats, repo=repo)
-    policy.eval()
+    policy = make_policy(
+        cfg=cfg.policy,
+        env_cfg=cfg.env,
+    )
 
-    logging.info("Making environment.")
-    envs = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
-    
-    config.device = "cpu"
+    policy.eval()
     preprocessor, postprocessor = make_pre_post_processors(
         policy_cfg=cfg.policy,
         pretrained_path=cfg.policy.pretrained_path,
         # The inference device is automatically set to match the detected hardware, overriding any previous device settings from training to ensure compatibility.
         preprocessor_overrides={"device_processor": {"device": str(policy.config.device)}},
     )
-    with torch.no_grad():
+    with torch.no_grad(), torch.autocast(device_type=device.type) if cfg.policy.use_amp else nullcontext():
         info = eval_policy_all(
             envs=envs,
             policy=policy,

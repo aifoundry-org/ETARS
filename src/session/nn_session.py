@@ -187,6 +187,7 @@ class OnnxModule:
                     model_path, self.onnx_symbols)
 
             if self.use_et_provider_options:
+                self.session_options.graph_optimization_level  = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
                 provider_options = get_etglow_provider_options(self.num_layers,
                                                             run_dir=self.rundir,
                                                             use_kvc=False,

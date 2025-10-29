@@ -94,7 +94,7 @@ def pad_tensor(tensor, max_len, pad_value=0):
 
 class SmolVLAPolicyOnnx(SmolVLAPolicy):
 
-    def __init__(self, config=None, ds_meta=None):
+    def __init__(self, config=None, ds_meta=None, repo=None):
         name = "smolvla"
         if not config:
             self.config = PreTrainedConfig.from_pretrained("lerobot/smolvla_base")
@@ -117,7 +117,7 @@ class SmolVLAPolicyOnnx(SmolVLAPolicy):
             self.config.vlm_model_name
         ).tokenizer
 
-        self.model = SmolVLAFlowOnnx(self.config)
+        self.model = SmolVLAFlowOnnx(self.config, repo)
 
         self.reset()
 
@@ -141,7 +141,10 @@ class SmolVLAPolicyOnnx(SmolVLAPolicy):
 
 
 class SmolVLAFlowOnnx:
-    def __init__(self, config: SmolVLAConfig):
+    def __init__(self, config: SmolVLAConfig, repo=None):
+
+        if not repo:
+            repo = "ainekko/smolvla_libero_onnx"
 
         self.config = config
 
@@ -151,7 +154,7 @@ class SmolVLAFlowOnnx:
             device = "CPU"
 
         self.vlme = SmolVLMWithExpertModelOnnx(
-            hf_repo="ainekko/smolvla_base_onnx")
+            hf_repo=repo)
         self.vlme_module = self.vlme.get_vlme_module(
             provider=device
         )
@@ -168,24 +171,24 @@ class SmolVLAFlowOnnx:
         # )
         self.state_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="state_projector.onnx"
+            hf_repo=repo, hf_filename="state_projector.onnx"
         )
 
         self.action_in_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_in_projector.onnx"
+            hf_repo=repo, hf_filename="action_in_projector.onnx"
         )
         self.action_out_proj = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="action_out_projector.onnx"
+            hf_repo=repo, hf_filename="action_out_projector.onnx"
         )
         self.action_time_mlp_in = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_in_projector.onnx"
+            hf_repo=repo, hf_filename="time_in_projector.onnx"
         )
         self.action_time_mpl_out = OnnxModule(
             provider=device,
-            hf_repo="ainekko/smolvla_base_onnx", hf_filename="time_out_projector.onnx"
+            hf_repo=repo, hf_filename="time_out_projector.onnx"
         )
 
         # class instance vars
@@ -201,7 +204,7 @@ class SmolVLAFlowOnnx:
         self.prefix_length = self.config.prefix_length
 
         # Properties
-        self.expert_hidden_size = 720
+        self.expert_hidden_size = int(960 * self.config.expert_width_multiplier) # 960 is base expert_size for smolVLA model
 
     @staticmethod
     def sample_noise(shape):
@@ -211,11 +214,6 @@ class SmolVLAFlowOnnx:
             size=shape,
             dtype=torch.float32
         ).numpy()
-        # noise = np.random.normal(
-        # loc=0.0,
-        # scale=1.0,
-        # size=shape,
-        # ).astype(np.float32)
         return noise
 
     def sample_time(self, bsize):

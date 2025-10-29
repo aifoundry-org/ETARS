@@ -30,7 +30,9 @@ transformers==4.55.0
 typing_extensions==4.14.1
 urllib3==2.5.0
 pillow==11.3.0
-lerobot @ git+https://github.com/aifoundry-org/lerobot@0.3.4
+lerobot @ git+https://github.com/aifoundry-org/lerobot@845b359d390b4c4f53c0560a8009e6d3ce7b88e1
+lerobot[libero] @ git+https://github.com/aifoundry-org/lerobot@845b359d390b4c4f53c0560a8009e6d3ce7b88e1
 num2words==0.5.14
 gym-aloha==0.1.3
 pytest==8.4.2
+pyopengl-accelerate
