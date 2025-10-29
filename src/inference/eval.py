@@ -511,10 +511,10 @@ def eval_main():
         help='Execution device for policy backend (default: "CPU")',
     )
     args = parser.parse_args()
+    repo = "ainekko/smolvla_libero_sim_onnx"
     
-    sys.argv += ["--policy.path=HuggingFaceVLA/smolvla_libero"]
-    config = PreTrainedConfig.from_pretrained("HuggingFaceVLA/smolvla_libero")
-    config.pretrained_path = "HuggingFaceVLA/smolvla_libero"
+    config = PreTrainedConfig.from_pretrained(repo)
+    config.pretrained_path = repo
     ds_meta = LeRobotDatasetMetadata("aifoundry-org/libero")
 
     cfg = EvalPipelineConfig(env=LiberoEnv(), policy=config, output_dir="outputs")
@@ -522,11 +522,6 @@ def eval_main():
     cfg.eval.n_episodes = 1
     logging.info(pformat(asdict(cfg)))
 
-    # Check device is available
-    # device = get_safe_torch_device(cfg.policy.device, log=True)
-
-    # torch.backends.cudnn.benchmark = True
-    # torch.backends.cuda.matmul.allow_tf32 = True
     set_seed(cfg.seed)
 
     logging.info(colored("Output dir:", "yellow", attrs=["bold"]) + f" {cfg.output_dir}")
@@ -535,7 +530,7 @@ def eval_main():
     logging.info("Making policy.")
 
     config.device = args.device 
-    policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats, repo="ainekko/smolvla_libero_sim_onnx")
+    policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats, repo=repo)
     policy.eval()
 
     logging.info("Making environment.")

@@ -204,8 +204,7 @@ class SmolVLAFlowOnnx:
         self.prefix_length = self.config.prefix_length
 
         # Properties
-        # self.expert_hidden_size = 720
-        self.expert_hidden_size = 480 # Determine this value automatically!
+        self.expert_hidden_size = int(960 * self.config.expert_width_multiplier) # 960 is base expert_size for smolVLA model
 
     @staticmethod
     def sample_noise(shape):
@@ -215,11 +214,6 @@ class SmolVLAFlowOnnx:
             size=shape,
             dtype=torch.float32
         ).numpy()
-        # noise = np.random.normal(
-        # loc=0.0,
-        # scale=1.0,
-        # size=shape,
-        # ).astype(np.float32)
         return noise
 
     def sample_time(self, bsize):
