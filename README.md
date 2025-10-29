@@ -76,6 +76,14 @@ or, for ETSoC hardware:
 python -m src.inference.smolvla --device ET
 ```
 
+If you wish to eval model in simulation, consider using eval script
+
+```bash
+python -m src.inference.eval --device CPU
+```
+If you have available display this command will launch a small visualization of evaluation process.
+Othervise it'll save current fram to the `sim_frame.png` file and later compile a video in outputs filder.
+
 ### Torch-based (LeRobot default) inference
 
 ```bash
@@ -107,8 +115,10 @@ To run a testing simulation:
 ```
 src/
  ├── inference/
- │    ├── smolvla.py            # ONNXRuntime inference entrypoint (CPU / ET)
- │    └── smolvla_torch.py      # Reference Torch-based inference
+ │    ├── eval_torch.py         # Reference Torch-based evaluation script
+ │    ├── eval.py               # ONNXRuntime script for evaluation (CPU/ ET)
+ │    ├── smolvla_torch.py      # Reference Torch-based inference
+ │    └── smolvla.py            # ONNXRuntime inference entrypoint (CPU / ET)
  └── tests/
       └── test_compare_policies.py  # Cross-backend consistency test
 ```
