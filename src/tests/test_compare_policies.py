@@ -8,7 +8,7 @@ import os
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+from src.lerobot.policies.onnx.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
 
 from lerobot.policies.factory import make_policy
 

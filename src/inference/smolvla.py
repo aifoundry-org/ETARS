@@ -5,7 +5,7 @@ from lerobot.configs.policies import PreTrainedConfig
 from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata, LeRobotDataset
 from lerobot.policies.factory import make_pre_post_processors
 
-from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+from src.lerobot.policies.onnx.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
 from src.utils.deterministrc import set_deterministic
 
 

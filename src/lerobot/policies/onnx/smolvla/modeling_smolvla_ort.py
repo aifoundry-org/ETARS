@@ -3,12 +3,12 @@ import numpy as np
 import torch
 
 from typing import Literal
-from src.lerobot.policies.smolvla.smolvlm_with_expert_onnx import (
+from src.lerobot.policies.onnx.smolvla.smolvlm_with_expert_onnx import (
     SmolVLMWithExpertModelOnnx,
 )
 from src.utils.np_operations import silu, mse_loss
 
-from src.session.nn_session import OnnxModule
+from src.session.onnx.nn_session import OnnxModule
 
 from transformers import AutoProcessor
 from lerobot.policies.smolvla.configuration_smolvla import SmolVLAConfig

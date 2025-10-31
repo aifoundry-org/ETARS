@@ -1,5 +1,5 @@
 from pathlib import Path
-from src.session.nn_session import OnnxModule
+from src.session.onnx.nn_session import OnnxModule
 from typing import Optional
 
 from transformers import AutoProcessor

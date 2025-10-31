@@ -503,7 +503,7 @@ def eval_main():
     from lerobot.envs.configs import LiberoEnv
     from lerobot.configs.policies import PreTrainedConfig
     from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
-    from src.lerobot.policies.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+    from src.lerobot.policies.onnx.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
 
     parser = argparse.ArgumentParser(description="Run SmolVLA policy evaluation in sim.")
     parser.add_argument(
