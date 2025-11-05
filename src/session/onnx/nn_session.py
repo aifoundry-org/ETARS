@@ -3,7 +3,8 @@ import onnxruntime
 from pathlib import Path
 from typing import Literal, Optional
 
-from src.session.utils import get_etglow_provider_options, set_verbose_output, fix_model_dimensions
+from src.session.glow import get_etglow_provider_options, set_verbose_output, fix_model_dimensions
+from src.session.utils import resolve_model_path
 
 
 class OnnxModule:
@@ -136,7 +137,7 @@ class OnnxModule:
 
         self.rundir = rundir
         self.onnx_symbols = {"batch": 1}
-        resolved_model_path = self.__resolve_model_path(
+        resolved_model_path = resolve_model_path(
             model_path=model_path,
             hf_repo=hf_repo,
             hf_filename=hf_filename,
@@ -147,36 +148,6 @@ class OnnxModule:
         self.session = self.__get_onnx_session(
             resolved_model_path, provider, fix_dimensions)
     
-    def __resolve_model_path(self,
-                             model_path: Optional[Path],
-                             hf_repo: Optional[str],
-                             hf_filename: str,
-                             hf_revision: Optional[str],
-                             hf_token: Optional[str],
-                             hf_cache: Optional[str]) -> Path:
-        if hf_repo:
-            try:
-                from huggingface_hub import hf_hub_download
-            except Exception as e:
-                raise RuntimeError(
-                    "huggingface_hub is required to load from Hugging Face. "
-                    "Install with: pip install huggingface_hub"
-                ) from e
-
-            downloaded = hf_hub_download(
-                repo_id=hf_repo,
-                filename=hf_filename,
-                revision=hf_revision,
-                token=hf_token,
-                cache_dir=hf_cache,
-                local_files_only=False,
-            )
-            return Path(downloaded)
-        
-        if model_path is None:
-            raise ValueError("Provide either a local model_path or hf_repo + hf_filename.")
-        return Path(model_path)
-
     def __get_onnx_session(self, model_path, provider, fix_dimensions):
         if provider == "ET":
             if not self.onnx_symbols:

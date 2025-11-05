@@ -5,7 +5,8 @@ from lerobot.configs.policies import PreTrainedConfig
 from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata, LeRobotDataset
 from lerobot.policies.factory import make_pre_post_processors
 
-from src.lerobot.policies.onnx.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+# from src.lerobot.policies.onnx.smolvla.modeling_smolvla_ort import SmolVLAPolicyOnnx
+from src.lerobot.policies.tinygrad.modeling_smolvla import SmolVLAPolicyTinyOnnx
 from src.utils.deterministrc import set_deterministic
 
 
@@ -30,7 +31,8 @@ def main():
     noise = np.ones((1, 50, 32), dtype=np.float32)
 
     config.device = args.device  # "CPU" or "ET"
-    policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats)
+    # policy = SmolVLAPolicyOnnx(config=config, ds_meta=ds_meta.stats)
+    policy = SmolVLAPolicyTinyOnnx(config=config, ds_meta=ds_meta.stats)
 
     batch = preprocessor(ds[0])
 

@@ -41,13 +41,14 @@ This repository focuses exclusively on inference, providing an ONNXRuntime integ
 2. **Install virtual environment tools**
 
    ```bash
-   apt update && apt install python3.10-venv
+   apt update && apt install python3.11-venv 
    ```
 
+   *For latest tinygrad version >=3.11 version of python is required*
 3. **Create and activate a virtual environment**
 
    ```bash
-   python3 -m venv venv
+   python3.11 -m venv venv
    source venv/bin/activate
    ```
 
