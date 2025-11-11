@@ -2,6 +2,8 @@ import math
 import numpy as np
 import torch
 
+from tinygrad import Tensor
+
 # from src.lerobot.policies.onnx.smolvla.smolvlm_with_expert_onnx import SmolVLMWithExpertModelOnnx,
 
 from src.lerobot.policies.tinygrad.smolvlm_with_expert import SmolVLMWithExpertModelTinyOnnx
@@ -300,9 +302,12 @@ class SmolVLAFlowOnnx:
 
         # Set attention masks so that image and language inputs do not attend to state or actions
         att_masks += [1] * (states_seq_len)
-        embs = np.concatenate(embs, axis=1)
+        # embs = np.concatenate(embs, axis=1)
+        embs = Tensor.cat(*embs, dim=1)
+        # TODO transfer to tynygrad datatypes
         pad_masks = np.concatenate(pad_masks, axis=1)
         att_masks = np.array(att_masks, dtype=bool)
+        ##
         att_masks = att_masks[None, :]  # ?
 
         seq_len = pad_masks.shape[1]
@@ -316,7 +321,7 @@ class SmolVLAFlowOnnx:
         # att_masks = np.expand_dims(att_masks, axis=(0, -1))
         # att_masks = np.broadcast_to(att_masks, (bsize, -1))
 
-        return embs, pad_masks, att_masks
+        return embs, pad_masks, att_masks # dirty hack that I don't like at all
 
     def embed_suffix(self, noisy_actions, timestamp):
         """Embed state, noisy_actions, timestep to prepare for Expert Gemma processing."""
