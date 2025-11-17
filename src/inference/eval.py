@@ -513,7 +513,7 @@ def eval_main():
         help='Execution device for policy backend (default: "CPU")',
     )
     args = parser.parse_args()
-    repo = "ainekko/smolvla_libero_sim_onnx"
+    repo = "ainekko/smolvla_libero_onnx"
     
     config = PreTrainedConfig.from_pretrained(repo)
     config.pretrained_path = repo
