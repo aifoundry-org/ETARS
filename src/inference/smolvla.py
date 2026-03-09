@@ -21,7 +21,7 @@ def main():
 
     set_deterministic(0)
 
-    config = PreTrainedConfig.from_pretrained("HuggingFaceVLA/smolvla_libero")
+    config = PreTrainedConfig.from_pretrained("ainekko/smolvla_libero_onnx")
 
     ds_name = "aifoundry-org/libero"
     ds = LeRobotDataset(ds_name, episodes=[0])
